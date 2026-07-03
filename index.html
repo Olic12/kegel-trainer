@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kegel Trainer</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#32292F">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg-0: #32292F;
+    --bg-1: #463a42;
+    --card: rgba(255,255,255,0.035);
+    --card-border: rgba(153,225,217,0.18);
+    --surface: rgba(255,255,255,0.06);
+    --accent: #99E1D9;
+    --accent2: #ff7eb6;
+    --text: #ece6e8;
+    --muted: #b3a3a8;
+    --good: #22c55e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(circle at 15% 0%, var(--bg-1) 0%, var(--bg-0) 55%);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 48px;
+  }
+  h1 { font-size: 1.4rem; margin: 8px 0 2px; }
+  .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 20px; text-align: center; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    padding: 20px;
+    width: 100%;
+    max-width: 420px;
+    margin-bottom: 16px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.02), 0 8px 30px rgba(153,225,217,0.08);
+  }
+  .ring-wrap {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 8px 0 16px;
+  }
+  .ring-wrap svg { transform: rotate(-90deg); }
+  .ring-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 12; }
+  .ring-fg { fill: none; stroke: var(--accent); stroke-width: 12; stroke-linecap: round; transition: stroke 0.3s; }
+  .ring-fg.relax { stroke: var(--accent2); }
+  .ring-center {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    pointer-events: none;
+  }
+  .phase-label {
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    padding: 4px 14px;
+    border-radius: 20px;
+    background: rgba(153,225,217,0.15);
+    color: var(--accent);
+  }
+  .phase-label.relax { background: rgba(255, 126, 182, 0.15); color: var(--accent2); }
+  .phase-time {
+    font-size: 3.6rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-top: 10px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 1px;
+  }
+  .rep-counter { color: var(--muted); font-size: 0.95rem; margin-top: 10px; }
+  .position-tag {
+    margin-top: 4px;
+    font-size: 0.85rem;
+    color: var(--text);
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 3px 10px;
+  }
+  .controls { display: flex; gap: 10px; justify-content: center; margin-top: 6px; }
+  button {
+    border: none;
+    border-radius: 12px;
+    padding: 12px 18px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s, opacity 0.2s;
+  }
+  button:active { transform: scale(0.96); }
+  .btn-primary { background: var(--accent); color: #1a2e2b; flex: 1; }
+  .btn-secondary { background: var(--surface); color: var(--text); }
+  .btn-danger { background: rgba(244,63,94,0.15); color: #ff9eb6; }
+  .programs { display: flex; flex-direction: column; gap: 8px; }
+  .program-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 10px 14px;
+    cursor: pointer;
+    border: 2px solid transparent;
+  }
+  .program-row.active { border-color: var(--accent); }
+  .program-name { font-weight: 600; }
+  .program-meta { color: var(--muted); font-size: 0.8rem; }
+  .stats-grid { display: flex; justify-content: space-between; text-align: center; }
+  .stat { flex: 1; }
+  .stat-value { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+  .stat-label { color: var(--muted); font-size: 0.75rem; margin-top: 2px; }
+  .reminder-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  select {
+    background: var(--surface);
+    color: var(--text);
+    border: none;
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 0.9rem;
+  }
+  .toggle {
+    position: relative;
+    width: 48px;
+    height: 28px;
+    background: rgba(255,255,255,0.12);
+    border-radius: 20px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .toggle.on { background: var(--good); }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 22px;
+    height: 22px;
+    background: white;
+    border-radius: 50%;
+    transition: left 0.2s;
+  }
+  .toggle.on::after { left: 23px; }
+  .position-select {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .position-btn {
+    flex: 1;
+    background: #20263380;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    padding: 10px 6px;
+    text-align: center;
+    color: var(--muted);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+  .position-btn .pos-icon { display: block; font-size: 1.4rem; margin-bottom: 2px; }
+  .position-btn.active {
+    border-color: var(--accent);
+    color: var(--text);
+    background: rgba(94, 203, 255, 0.12);
+  }
+  .hidden { display: none !important; }
+  .section-title { font-size: 0.95rem; color: var(--muted); margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .done-banner { text-align: center; padding: 12px 0; }
+  .done-banner .emoji { font-size: 2.4rem; }
+</style>
+</head>
+<body>
+
+<h1>🌸 Kegel Trainer</h1>
+<div class="subtitle">Kurze Übungen für zwischendurch – jederzeit, unauffällig.</div>
+
+<div class="card" id="timerCard">
+  <div class="section-title">Position</div>
+  <div class="position-select" id="positionSelect"></div>
+
+  <div class="ring-wrap">
+    <svg width="240" height="240" viewBox="0 0 240 240">
+      <circle class="ring-bg" cx="120" cy="120" r="104" stroke-dasharray="0"></circle>
+      <circle class="ring-fg" id="ringFg" cx="120" cy="120" r="104"></circle>
+    </svg>
+    <div class="ring-center">
+      <div class="phase-label" id="phaseLabel">Bereit</div>
+      <div class="phase-time" id="phaseTime">00</div>
+      <div class="rep-counter" id="repCounter">Wiederholung 0 / 0</div>
+    </div>
+  </div>
+  <div class="controls">
+    <button class="btn-secondary" id="resetBtn">Reset</button>
+    <button class="btn-primary" id="startBtn">Start</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="section-title">Programm wählen</div>
+  <div class="programs" id="programList"></div>
+</div>
+
+<div class="card">
+  <div class="section-title">Heute</div>
+  <div class="stats-grid">
+    <div class="stat">
+      <div class="stat-value" id="statSessions">0</div>
+      <div class="stat-label">Einheiten</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="statReps">0</div>
+      <div class="stat-label">Wiederholungen</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="statStreak">0</div>
+      <div class="stat-label">Tage Streak</div>
+    </div>
+  </div>
+  <div class="program-meta" id="statPositions" style="margin-top:12px; text-align:center;"></div>
+</div>
+
+<div class="card">
+  <div class="section-title">Erinnerung</div>
+  <div class="reminder-row">
+    <div>
+      <div style="font-weight:600;">Push-Erinnerung</div>
+      <div class="program-meta" id="reminderStatus">aus</div>
+    </div>
+    <div class="toggle" id="reminderToggle"></div>
+  </div>
+  <div class="reminder-row" style="margin-top:12px;">
+    <span>Intervall</span>
+    <select id="reminderInterval">
+      <option value="30">alle 30 Min</option>
+      <option value="60" selected>alle 60 Min</option>
+      <option value="120">alle 2 Std</option>
+      <option value="180">alle 3 Std</option>
+    </select>
+  </div>
+</div>
+
+<audio id="beep" preload="auto"></audio>
+
+<script>
+(function () {
+  const PROGRAMS = [
+    { id: 'quick', name: 'Quick Reset', meta: '5 Wdh · ~1 Min', contract: 3, relax: 3, reps: 5 },
+    { id: 'standard', name: 'Standard', meta: '10 Wdh · ~3 Min', contract: 5, relax: 5, reps: 10 },
+    { id: 'endurance', name: 'Ausdauer', meta: '12 Wdh · ~5 Min', contract: 8, relax: 6, reps: 12 },
+    { id: 'pulse', name: 'Schnellkontraktion', meta: '20 Wdh · ~2 Min', contract: 1, relax: 1, reps: 20 },
+  ];
+
+  const POSITIONS = [
+    { id: 'lying', label: 'Liegend', icon: '🛏️' },
+    { id: 'sitting', label: 'Sitzend', icon: '🪑' },
+    { id: 'standing', label: 'Stehend', icon: '🧍' },
+  ];
+
+  const ringFg = document.getElementById('ringFg');
+  const phaseLabel = document.getElementById('phaseLabel');
+  const phaseTime = document.getElementById('phaseTime');
+  const repCounter = document.getElementById('repCounter');
+  const startBtn = document.getElementById('startBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const programList = document.getElementById('programList');
+  const positionSelect = document.getElementById('positionSelect');
+  const beep = document.getElementById('beep');
+
+  const CIRC = 2 * Math.PI * 104;
+  ringFg.setAttribute('stroke-dasharray', CIRC);
+
+  let selectedProgram = loadSelectedProgram();
+  let selectedPosition = loadSelectedPosition();
+  let state = 'idle'; // idle | contract | relax | done
+  let currentRep = 0;
+  let phaseRemaining = 0;
+  let phaseTotal = 0;
+  let tickHandle = null;
+  let audioCtx = null;
+
+  function ensureAudio() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return audioCtx;
+  }
+
+  function playTone(freq, duration) {
+    try {
+      const ctx = ensureAudio();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = freq;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      osc.start();
+      osc.stop(ctx.currentTime + duration);
+    } catch (e) { /* audio unavailable */ }
+  }
+
+  function renderPrograms() {
+    programList.innerHTML = '';
+    PROGRAMS.forEach((p) => {
+      const row = document.createElement('div');
+      row.className = 'program-row' + (p.id === selectedProgram.id ? ' active' : '');
+      row.innerHTML =
+        '<div><div class="program-name">' + p.name + '</div>' +
+        '<div class="program-meta">' + p.meta + ' · Anspannen ' + p.contract + 's / Lösen ' + p.relax + 's</div></div>';
+      row.addEventListener('click', () => {
+        selectedProgram = p;
+        localStorage.setItem('kegel_selected_program', p.id);
+        renderPrograms();
+        resetTimer();
+      });
+      programList.appendChild(row);
+    });
+  }
+
+  function loadSelectedProgram() {
+    const saved = localStorage.getItem('kegel_selected_program');
+    return PROGRAMS.find((p) => p.id === saved) || PROGRAMS[1];
+  }
+
+  function renderPositions() {
+    positionSelect.innerHTML = '';
+    POSITIONS.forEach((pos) => {
+      const btn = document.createElement('div');
+      btn.className = 'position-btn' + (pos.id === selectedPosition.id ? ' active' : '');
+      btn.innerHTML = '<span class="pos-icon">' + pos.icon + '</span>' + pos.label;
+      btn.addEventListener('click', () => {
+        selectedPosition = pos;
+        localStorage.setItem('kegel_selected_position', pos.id);
+        renderPositions();
+      });
+      positionSelect.appendChild(btn);
+    });
+  }
+
+  function loadSelectedPosition() {
+    const saved = localStorage.getItem('kegel_selected_position');
+    return POSITIONS.find((p) => p.id === saved) || POSITIONS[0];
+  }
+
+  function setRing(fraction, phaseClass) {
+    ringFg.classList.toggle('relax', phaseClass === 'relax');
+    const offset = CIRC * (1 - fraction);
+    ringFg.setAttribute('stroke-dashoffset', offset);
+  }
+
+  function resetTimer() {
+    clearInterval(tickHandle);
+    state = 'idle';
+    currentRep = 0;
+    phaseRemaining = 0;
+    phaseTotal = 0;
+    setRing(0, 'contract');
+    phaseLabel.classList.remove('relax');
+    phaseLabel.textContent = 'Bereit';
+    phaseTime.textContent = '00';
+    repCounter.textContent = 'Wiederholung 0 / ' + selectedProgram.reps;
+    startBtn.textContent = 'Start';
+  }
+
+  function startTimer() {
+    if (state === 'idle' || state === 'done') {
+      currentRep = 0;
+      beginPhase('contract');
+    }
+    startBtn.textContent = 'Pause';
+    if (tickHandle) clearInterval(tickHandle);
+    tickHandle = setInterval(tick, 1000);
+  }
+
+  function pauseTimer() {
+    clearInterval(tickHandle);
+    tickHandle = null;
+    startBtn.textContent = 'Weiter';
+  }
+
+  function beginPhase(phase) {
+    state = phase;
+    phaseTotal = phase === 'contract' ? selectedProgram.contract : selectedProgram.relax;
+    phaseRemaining = phaseTotal;
+    phaseLabel.classList.toggle('relax', phase === 'relax');
+    phaseLabel.textContent = phase === 'contract' ? 'Anspannen' : 'Lösen';
+    phaseTime.textContent = String(phaseRemaining).padStart(2, '0');
+    setRing(0, phase);
+    playTone(phase === 'contract' ? 660 : 440, 0.15);
+    repCounter.textContent = 'Wiederholung ' + (currentRep + 1) + ' / ' + selectedProgram.reps;
+  }
+
+  function tick() {
+    phaseRemaining -= 1;
+    const fraction = 1 - phaseRemaining / phaseTotal;
+    setRing(fraction, state);
+    phaseTime.textContent = String(Math.max(phaseRemaining, 0)).padStart(2, '0');
+
+    if (phaseRemaining <= 0) {
+      if (state === 'contract') {
+        beginPhase('relax');
+      } else {
+        currentRep += 1;
+        if (currentRep >= selectedProgram.reps) {
+          finishSession();
+        } else {
+          beginPhase('contract');
+        }
+      }
+    }
+  }
+
+  function finishSession() {
+    clearInterval(tickHandle);
+    tickHandle = null;
+    state = 'done';
+    phaseLabel.textContent = 'Fertig! 🎉';
+    phaseTime.textContent = '--';
+    repCounter.textContent = selectedProgram.reps + ' / ' + selectedProgram.reps + ' geschafft';
+    setRing(1, 'relax');
+    startBtn.textContent = 'Neu starten';
+    playTone(880, 0.3);
+    recordSession();
+  }
+
+  startBtn.addEventListener('click', () => {
+    if (state === 'idle' || state === 'done') {
+      startTimer();
+    } else if (tickHandle) {
+      pauseTimer();
+    } else {
+      tickHandle = setInterval(tick, 1000);
+      startBtn.textContent = 'Pause';
+    }
+  });
+
+  resetBtn.addEventListener('click', resetTimer);
+
+  // --- Stats ---
+  function todayKey() {
+    const d = new Date();
+    return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+  }
+
+  function loadStats() {
+    try {
+      return JSON.parse(localStorage.getItem('kegel_stats') || '{}');
+    } catch (e) { return {}; }
+  }
+
+  function saveStats(stats) {
+    localStorage.setItem('kegel_stats', JSON.stringify(stats));
+  }
+
+  function recordSession() {
+    const stats = loadStats();
+    const key = todayKey();
+    if (!stats[key]) stats[key] = { sessions: 0, reps: 0, positions: {} };
+    if (!stats[key].positions) stats[key].positions = {};
+    stats[key].sessions += 1;
+    stats[key].reps += selectedProgram.reps;
+    stats[key].positions[selectedPosition.id] = (stats[key].positions[selectedPosition.id] || 0) + 1;
+    saveStats(stats);
+    renderStats();
+  }
+
+  function renderStats() {
+    const stats = loadStats();
+    const key = todayKey();
+    const today = stats[key] || { sessions: 0, reps: 0 };
+    document.getElementById('statSessions').textContent = today.sessions;
+    document.getElementById('statReps').textContent = today.reps;
+
+    // streak: consecutive days with at least one session, counting back from today
+    let streak = 0;
+    let cursor = new Date();
+    while (true) {
+      const k = cursor.getFullYear() + '-' + (cursor.getMonth() + 1) + '-' + cursor.getDate();
+      if (stats[k] && stats[k].sessions > 0) {
+        streak += 1;
+        cursor.setDate(cursor.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+    document.getElementById('statStreak').textContent = streak;
+
+    const positions = today.positions || {};
+    const posText = POSITIONS
+      .filter((p) => positions[p.id])
+      .map((p) => p.icon + ' ' + positions[p.id])
+      .join('   ');
+    document.getElementById('statPositions').textContent = posText;
+  }
+
+  // --- Reminders ---
+  const reminderToggle = document.getElementById('reminderToggle');
+  const reminderStatus = document.getElementById('reminderStatus');
+  const reminderInterval = document.getElementById('reminderInterval');
+  let reminderTimer = null;
+
+  function loadReminderSettings() {
+    try {
+      return JSON.parse(localStorage.getItem('kegel_reminder') || '{}');
+    } catch (e) { return {}; }
+  }
+
+  function saveReminderSettings(s) {
+    localStorage.setItem('kegel_reminder', JSON.stringify(s));
+  }
+
+  function scheduleReminder(minutes) {
+    if (reminderTimer) clearInterval(reminderTimer);
+    reminderTimer = setInterval(() => {
+      if (Notification.permission === 'granted') {
+        new Notification('Zeit für Kegel-Übungen 🌸', {
+          body: 'Kurze Pause für eine Kegel-Einheit (' + selectedProgram.name + ').',
+        });
+      }
+    }, minutes * 60 * 1000);
+  }
+
+  function applyReminderUI(enabled) {
+    reminderToggle.classList.toggle('on', enabled);
+    reminderStatus.textContent = enabled ? 'an' : 'aus';
+  }
+
+  reminderToggle.addEventListener('click', async () => {
+    const settings = loadReminderSettings();
+    const currentlyOn = !!settings.enabled;
+    if (!currentlyOn) {
+      if (!('Notification' in window)) {
+        alert('Dein Browser unterstützt keine Push-Benachrichtigungen.');
+        return;
+      }
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        alert('Ohne Erlaubnis können keine Erinnerungen gesendet werden.');
+        return;
+      }
+      settings.enabled = true;
+      settings.minutes = Number(reminderInterval.value);
+      saveReminderSettings(settings);
+      applyReminderUI(true);
+      scheduleReminder(settings.minutes);
+    } else {
+      settings.enabled = false;
+      saveReminderSettings(settings);
+      applyReminderUI(false);
+      if (reminderTimer) clearInterval(reminderTimer);
+    }
+  });
+
+  reminderInterval.addEventListener('change', () => {
+    const settings = loadReminderSettings();
+    settings.minutes = Number(reminderInterval.value);
+    saveReminderSettings(settings);
+    if (settings.enabled) scheduleReminder(settings.minutes);
+  });
+
+  function initReminders() {
+    const settings = loadReminderSettings();
+    if (settings.minutes) reminderInterval.value = String(settings.minutes);
+    if (settings.enabled && Notification && Notification.permission === 'granted') {
+      applyReminderUI(true);
+      scheduleReminder(settings.minutes || 60);
+    } else {
+      applyReminderUI(false);
+    }
+  }
+
+  // --- Init ---
+  renderPrograms();
+  renderPositions();
+  resetTimer();
+  renderStats();
+  initReminders();
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+})();
+</script>
+</body>
+</html>

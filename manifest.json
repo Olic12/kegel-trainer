@@ -1,0 +1,9 @@
+{
+  "name": "Kegel Trainer",
+  "short_name": "Kegel",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#32292F",
+  "theme_color": "#32292F",
+  "icons": []
+}
